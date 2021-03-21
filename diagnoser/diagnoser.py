@@ -308,7 +308,9 @@ class IssueDiagnoser:
                         f"{self._original_ctx.clean_prefix}{self.command.qualified_name}"
                     ),
                     channel=self.channel.mention,
-                )
+                ),
+                # not perfect, but will do...
+                escape_formatting=False,
             )
         ]
         result = await self._check_until_fail(
