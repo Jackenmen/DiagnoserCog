@@ -72,7 +72,7 @@ class IssueDiagnoser:
             )
         return CheckResult(True, label, details)
 
-    def _check_is_author_bot(self) -> Optional[str]:
+    async def _check_is_author_bot(self) -> Optional[str]:
         label = _("Check if the command caller is not a bot")
         if not self.author.bot:
             return CheckResult(True, label)
@@ -83,7 +83,7 @@ class IssueDiagnoser:
             _("This cannot be fixed - bots should not be listening to other bots."),
         )
 
-    def _check_can_bot_send_messages(self) -> Optional[str]:
+    async def _check_can_bot_send_messages(self) -> Optional[str]:
         label = _("Check if the bot can send messages in the given channel")
         if self.channel.permissions_for(self.guild.me).send_messages:
             return CheckResult(True, label)
