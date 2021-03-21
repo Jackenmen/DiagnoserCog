@@ -1,0 +1,45 @@
+default_language_version:
+  python: python3.8
+repos:
+  - repo: https://github.com/psf/black
+    rev: '20.8b1'
+    hooks:
+      - id: black
+  - repo: https://github.com/Pierre-Sassoulas/black-disable-checker
+    rev: '0.0.1'
+    hooks:
+      - id: black-disable-checker
+  - repo: https://github.com/pycqa/isort
+    rev: '5.7.0'
+    hooks:
+      - id: isort
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.4.0
+    hooks:
+      # `.gitattributes` should technically already handle this
+      # but autocrlf can result in local files keeping the CRLF
+      # which is problematic for codespell
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args:
+          - "--fix=lf"
+
+      # Trailing whitespace is evil
+      - id: trailing-whitespace
+
+      # Syntax validation
+      - id: check-ast
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+
+      # JSON auto-formatter
+      - id: pretty-format-json
+        args:
+          - "--autofix"
+          - "--indent=4"
+          - "--no-sort-keys"
+
+      # Checks for git-related issues
+      - id: check-case-conflict
+      - id: check-merge-conflict
