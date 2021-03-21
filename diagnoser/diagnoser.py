@@ -302,7 +302,11 @@ class IssueDiagnoser:
                     " when trying to run {command_name} command in {channel} channel:\n"
                 ).format(
                     user=self.author,
-                    command_name=inline(f"{self.ctx.clean_prefix}{self.command.qualified_name}"),
+                    command_name=inline(
+                        # needs to be _original_ctx - when bot is passed as the author,
+                        # Context parser won't go far enough to parse for prefix
+                        f"{self._original_ctx.clean_prefix}{self.command.qualified_name}"
+                    ),
                     channel=self.channel.mention,
                 )
             )
