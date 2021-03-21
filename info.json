@@ -1,0 +1,9 @@
+{
+    "name": "DiagnoserCog",
+    "short": "This is a repo for a `diagnoser` cog that contains a `diagnoseissues` command that should eventually become a part of Core Red.",
+    "description": "This is a repo for a `diagnoser` cog which tries to diagnose command check issues that prevent users from running commands.",
+    "install_msg": "Hi there! To get started, run `[p]cog install <repo_name> diagnoser` and load the cog with `[p]load diagnoser`",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ]
+}
