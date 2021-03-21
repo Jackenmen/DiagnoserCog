@@ -387,7 +387,7 @@ class Diagnoser(commands.Cog):
         if command is None:
             await ctx.send("Command not found!")
             return
-        if channel.permissions_for(member).send_messages:
+        if not channel.permissions_for(member).send_messages:
             # Let's make Flame happy here
             await ctx.send(
                 _(
