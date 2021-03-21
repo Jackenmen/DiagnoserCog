@@ -300,6 +300,10 @@ class IssueDiagnoser:
                 _(
                     "Diagnose results for issues of {user}"
                     " when trying to run {command_name} command in {channel} channel:\n"
+                ).format(
+                    user=self.author,
+                    command_name=inline(f"{self.ctx.clean_prefix}{self.command.qualified_name}"),
+                    channel=self.channel.mention,
                 )
             )
         ]
