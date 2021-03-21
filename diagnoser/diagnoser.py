@@ -240,7 +240,7 @@ class IssueDiagnoser:
         label = _("Check if the command is disabled")
         command = self.ctx.command
 
-        for parent in reversed(parents):
+        for parent in reversed(command.parents):
             if parent.enabled:
                 continue
             return CheckResult(
