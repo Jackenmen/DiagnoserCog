@@ -109,7 +109,7 @@ class IssueDiagnoser:
         if self.channel.category is None:
             resolution = _(
                 "To fix this issue, check the list returned by the {command} command"
-                " and ensure that the {channel} channel and the guild aren't a part of that list."
+                " and ensure that the {channel} channel and the server aren't a part of that list."
             ).format(
                 command=inline(f"{self.ctx.clean_prefix}ignore list"),
                 channel=self.channel.mention,
@@ -119,7 +119,7 @@ class IssueDiagnoser:
                 "To fix this issue, check the list returned by the {command} command"
                 " and ensure that the {channel} channel,"
                 " the channel category it belongs to ({channel_category}),"
-                " and the guild aren't a part of that list."
+                " and the server aren't a part of that list."
             ).format(
                 command=inline(f"{self.ctx.clean_prefix}ignore list"),
                 channel=self.channel.mention,
@@ -129,7 +129,7 @@ class IssueDiagnoser:
         return CheckResult(
             False,
             label,
-            _("The bot is set to ignore commands in the given channel or this guild."),
+            _("The bot is set to ignore commands in the given channel or this server."),
             resolution,
         )
 
