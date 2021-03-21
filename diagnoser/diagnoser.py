@@ -162,6 +162,25 @@ class IssueDiagnoser:
                 ),
             )
 
+        return CheckResult(
+            False,
+            label,
+            _(
+                "Local allowlist or blocklist prevents the user"
+                " or their roles from running this command."
+            ),
+            _(
+                "To fix this issue, check the lists returned by {command_1}"
+                " and {command_2} commands~~, and ensure that the given user's ID ({user_id}) or IDs of their roles"
+                " aren't a part of either of them~~ (this resolution is not quite accurate, ask in support)."
+            ).format(
+                command_1=inline(f"{self.ctx.clean_prefix}localallowlist list"),
+                command_2=inline(f"{self.ctx.clean_prefix}localblocklist list"),
+                user_id=self.author.id,
+            ),
+        )
+
+        # this code is more granular, but sadly doesn't work due to a bug in Core Red
         is_role_related = not await self.bot.allowed_by_whitelist_blacklist(
             who_id=self.author.id, guild_id=self.guild.id
         )
