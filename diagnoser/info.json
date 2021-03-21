@@ -1,0 +1,20 @@
+{
+    "name": "Diagnoser",
+    "short": "This cog tries to diagnose command check issues that prevent users from running commands.",
+    "description": "This cog tries to diagnose command check issues that prevent users from running commands.",
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users.",
+    "install_msg": "Hi there! To get started, load the cog with `[p]load diagnoser` and check the help of `[p]diagnoseissues` command.",
+    "author": [
+        "jack1142 (Jackenmen#6607)"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "diagnostics",
+        "tools"
+    ],
+    "min_bot_version": "3.4.7",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
