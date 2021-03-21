@@ -347,9 +347,14 @@ class IssueDiagnoser:
                     "All checks passed and no issues were detected."
                     " Make sure that the given parameters correspond to"
                     " the channel, user, and command name that have been problematic.\n\n"
-                    "If you still can't find the issue, it is likely that one of the 3rd-party cogs"
-                    " you're using adds a global or cog local before invoke hook that prevents"
-                    " the command from getting invoked as this can't be diagnosed with this tool."
+                    "If you still can't find the issue, then you can use {command} to see"
+                    " whether any of the command checks are failing. Eventually, this command"
+                    " will be able to do this as well and provide more specific resolutions,"
+                    " but for now you will sadly have to do a bit more manual work"
+                    " to get this resolved, sorry!"
+                    # "If you still can't find the issue, it is likely that one of the 3rd-party cogs"
+                    # " you're using adds a global or cog local before invoke hook that prevents"
+                    # " the command from getting invoked as this can't be diagnosed with this tool."
                 )
             )
         else:
