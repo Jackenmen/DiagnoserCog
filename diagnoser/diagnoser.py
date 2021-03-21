@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass
-from functools import cached_property
 from typing import Awaitable, Callable, Iterable, List, Optional, Tuple
 
 import discord
@@ -36,18 +35,19 @@ class IssueDiagnoser:
         self.channel = channel
         self.author = author
         self.command = command
+        self._prepared = False
+        self.message: discord.Message
+        self.ctx: commands.Context
 
-    @cached_property
-    def message(self) -> discord.Message:
-        msg = copy(self._original_ctx.message)
-        msg.author = self.author
-        msg.channel = self.channel
-        msg.content = self._original_ctx.prefix + self.command.qualified_name
-        return msg
+    async def _prepare(self) -> None:
+        if self._prepared:
+            return
+        self.message = copy(self._original_ctx.message)
+        self.message.author = self.author
+        self.message.channel = self.channel
+        self.message.content = self._original_ctx.prefix + self.command.qualified_name
 
-    @cached_property
-    def ctx(self) -> commands.Context:
-        return self.bot.get_context(self.message)
+        self.ctx = await self.bot.get_context(self.message)
 
     async def _check_until_fail(
         self,
@@ -294,6 +294,7 @@ class IssueDiagnoser:
         return lines
 
     async def diagnose(self) -> str:
+        await self._prepare()
         lines = [
             bold(
                 _(
