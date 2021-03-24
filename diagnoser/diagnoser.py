@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Iterable, List, Optional, Tuple
+from typing import Awaitable, Callable, Iterable, List, Optional, Union
 
 import discord
 from redbot.core import commands
@@ -16,7 +16,7 @@ _ = lambda s: s
 class CheckResult:
     success: bool
     label: str
-    details: str = ""
+    details: Union[List[CheckResult], str] = ""
     resolution: str = ""
 
 
@@ -52,7 +52,7 @@ class IssueDiagnoser:
     async def _check_until_fail(
         self,
         label: str,
-        checks: Iterable[Callable[[], Awaitable[Tuple[str, bool]]]],
+        checks: Iterable[Callable[[], Awaitable[CheckResult]]],
         *,
         final_check_result: Optional[CheckResult] = None,
     ) -> CheckResult:
@@ -72,7 +72,7 @@ class IssueDiagnoser:
             )
         return CheckResult(True, label, details)
 
-    async def _check_is_author_bot(self) -> Optional[str]:
+    async def _check_is_author_bot(self) -> CheckResult:
         label = _("Check if the command caller is not a bot")
         if not self.author.bot:
             return CheckResult(True, label)
@@ -83,7 +83,7 @@ class IssueDiagnoser:
             _("This cannot be fixed - bots should not be listening to other bots."),
         )
 
-    async def _check_can_bot_send_messages(self) -> Optional[str]:
+    async def _check_can_bot_send_messages(self) -> CheckResult:
         label = _("Check if the bot can send messages in the given channel")
         if self.channel.permissions_for(self.guild.me).send_messages:
             return CheckResult(True, label)
@@ -101,7 +101,7 @@ class IssueDiagnoser:
     # While the following 2 checks could show even more precise error message,
     # it would require a usage of private attribute rather than the public API
     # which increases maintanance burden for not that big of benefit.
-    async def _check_ignored_issues(self) -> Optional[str]:
+    async def _check_ignored_issues(self) -> CheckResult:
         label = _("Check if the channel and the server aren't set to be ignored")
         if await self.bot.ignored_channel_or_guild(self.message):
             return CheckResult(True, label)
@@ -133,7 +133,7 @@ class IssueDiagnoser:
             resolution,
         )
 
-    async def _check_whitelist_blacklist_issues(self) -> Optional[str]:
+    async def _check_whitelist_blacklist_issues(self) -> CheckResult:
         # TODO: Okay, so I need a way better error messages here,
         # because if allowlist is non-empty, we want the user to check that the user/role ID
         # is part of the allowlist.
@@ -223,7 +223,7 @@ class IssueDiagnoser:
             ),
         )
 
-    async def _check_global_checks_issues(self) -> Optional[str]:
+    async def _check_global_checks_issues(self) -> CheckResult:
         label = _("Global checks")
         # To avoid running core's global checks twice, we just run them all regularly
         # and if it turns out that invokation would end here, we go back and check each of
@@ -255,7 +255,7 @@ class IssueDiagnoser:
             ),
         )
 
-    async def _check_disabled_command_issues(self) -> Optional[str]:
+    async def _check_disabled_command_issues(self) -> CheckResult:
         label = _("Check if the command is disabled")
         command = self.ctx.command
 
