@@ -72,6 +72,11 @@ class IssueDiagnoser:
             )
         return CheckResult(True, label, details)
 
+    def _format_command_name(self, command: Union[commands.Command, str]) -> str:
+        if not isinstance(command, str):
+            command = command.qualified_name
+        return inline(f"{self._original_ctx.clean_prefix}{command}")
+
     async def _check_is_author_bot(self) -> CheckResult:
         label = _("Check if the command caller is not a bot")
         if not self.author.bot:
@@ -111,7 +116,7 @@ class IssueDiagnoser:
                 "To fix this issue, check the list returned by the {command} command"
                 " and ensure that the {channel} channel and the server aren't a part of that list."
             ).format(
-                command=inline(f"{self.ctx.clean_prefix}ignore list"),
+                command=self._format_command_name("ignore list"),
                 channel=self.channel.mention,
             )
         else:
@@ -121,7 +126,7 @@ class IssueDiagnoser:
                 " the channel category it belongs to ({channel_category}),"
                 " and the server aren't a part of that list."
             ).format(
-                command=inline(f"{self.ctx.clean_prefix}ignore list"),
+                command=self._format_command_name("ignore list"),
                 channel=self.channel.mention,
                 channel_category=self.channel.category.mention,
             )
@@ -156,8 +161,8 @@ class IssueDiagnoser:
                     " and {command_2} commands~~, and ensure that the given user's ID ({user_id})"
                     " isn't a part of either of them~~ (this resolution is not quite accurate, ask in support)."
                 ).format(
-                    command_1=inline(f"{self.ctx.clean_prefix}allowlist list"),
-                    command_2=inline(f"{self.ctx.clean_prefix}blocklist list"),
+                    command_1=self._format_command_name("allowlist list"),
+                    command_2=self._format_command_name("blocklist list"),
                     user_id=self.author.id,
                 ),
             )
@@ -174,8 +179,8 @@ class IssueDiagnoser:
                 " and {command_2} commands~~, and ensure that the given user's ID ({user_id}) or IDs of their roles"
                 " aren't a part of either of them~~ (this resolution is not quite accurate, ask in support)."
             ).format(
-                command_1=inline(f"{self.ctx.clean_prefix}localallowlist list"),
-                command_2=inline(f"{self.ctx.clean_prefix}localblocklist list"),
+                command_1=self._format_command_name("localallowlist list"),
+                command_2=self._format_command_name("localblocklist list"),
                 user_id=self.author.id,
             ),
         )
@@ -202,8 +207,8 @@ class IssueDiagnoser:
                     " of the given user's are a part of either of them~~"
                     " (this resolution is not quite accurate, ask in support)."
                 ).format(
-                    command_1=inline(f"{self.ctx.clean_prefix}localallowlist list"),
-                    command_2=inline(f"{self.ctx.clean_prefix}localblocklist list"),
+                    command_1=self._format_command_name("localallowlist list"),
+                    command_2=self._format_command_name("localblocklist list"),
                     user_id=self.author.id,
                 ),
             )
@@ -217,8 +222,8 @@ class IssueDiagnoser:
                 " and {command_2} commands~~, and ensure that the given user's ID ({user_id})"
                 " isn't a part of either of them~~ (this resolution is not quite accurate, ask in support)."
             ).format(
-                command_1=inline(f"{self.ctx.clean_prefix}localallowlist list"),
-                command_2=inline(f"{self.ctx.clean_prefix}localblocklist list"),
+                command_1=self._format_command_name("localallowlist list"),
+                command_2=self._format_command_name("localblocklist list"),
                 user_id=self.author.id,
             ),
         )
@@ -270,10 +275,8 @@ class IssueDiagnoser:
                     "To fix this issue, you can run {command}"
                     " which will enable the {affected_command} command globally."
                 ).format(
-                    command=inline(
-                        f"{self.ctx.clean_prefix}command enable global {parent.qualified_name}"
-                    ),
-                    affected_command=inline(f"{self.ctx.clean_prefix}{parent.qualified_name}"),
+                    command=self._format_command_name(f"command enable global {parent}"),
+                    affected_command=self._format_command_name(parent),
                 ),
             )
 
@@ -286,10 +289,8 @@ class IssueDiagnoser:
                     "To fix this issue, you can run {command}"
                     " which will enable the {affected_command} command globally."
                 ).format(
-                    command=inline(
-                        f"{self.ctx.clean_prefix}command enable global {command.qualified_name}"
-                    ),
-                    affected_command=inline(f"{self.ctx.clean_prefix}{command.qualified_name}"),
+                    command=self._format_command_name(f"command enable global {command}"),
+                    affected_command=self._format_command_name(command),
                 ),
             )
 
