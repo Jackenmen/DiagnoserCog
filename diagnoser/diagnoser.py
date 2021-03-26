@@ -1,6 +1,5 @@
 # TODO: Ensure consistency for labels
 # TODO: Split IssueDiagnoser in a couple of mixins
-# TODO: Replace lists with tuples
 # TODO: Improve resolutions to work well with the rest of the string
 from __future__ import annotations
 
@@ -270,12 +269,12 @@ class IssueDiagnoser:
 
         return await self._check_until_fail(
             label,
-            [
+            (
                 self._check_is_author_bot,
                 self._check_can_bot_send_messages,
                 self._check_ignored_issues,
                 self._check_whitelist_blacklist_issues,
-            ],
+            ),
             final_check_result=CheckResult(
                 False,
                 _("Other 'global call once checks'"),
@@ -353,11 +352,11 @@ class IssueDiagnoser:
 
         return await self._check_until_fail(
             label,
-            [
+            (
                 self._check_dpy_can_run_bot,
                 self._check_dpy_can_run_cog,
                 self._check_dpy_can_run_command,
-            ],
+            ),
             final_check_result=CheckResult(
                 False,
                 _("Other issues related to the checks"),
@@ -499,10 +498,10 @@ class IssueDiagnoser:
         self.ctx.permission_state = original_perm_state
         return await self._check_until_fail(
             label,
-            [
+            (
                 partial(self._check_requires_bot_owner, cog_or_command),
                 partial(self._check_requires_permission_hooks, cog_or_command),
-            ],
+            ),
             # TODO: Split the `final_check_result` into parts to be ran by this function
             final_check_result=CheckResult(
                 False,
@@ -571,10 +570,10 @@ class IssueDiagnoser:
         self.ctx.permission_state = original_perm_state
         return await self._check_until_fail(
             label,
-            [
+            (
                 self._check_dpy_can_run,
                 self._check_requires,
-            ],
+            ),
             final_check_result=CheckResult(
                 False,
                 _("Other command checks"),
@@ -661,11 +660,11 @@ class IssueDiagnoser:
         ]
         result = await self._check_until_fail(
             "",
-            [
+            (
                 self._check_global_checks_issues,
                 self._check_disabled_command_issues,
                 self._check_can_run_issues,
-            ],
+            ),
         )
         lines.extend(self.get_message_from_check_result(result))
         lines.append("")
