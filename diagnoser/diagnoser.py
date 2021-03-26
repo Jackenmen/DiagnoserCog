@@ -682,9 +682,17 @@ class IssueDiagnoser:
                 )
             )
         else:
-            lines.append(
-                _("The bot has been able to identify the issue.") + f" {result.resolution}"
-            )
+            if result.resolution:
+                lines.append(
+                    _("The bot has been able to identify the issue.") + f" {result.resolution}"
+                )
+            else:
+                lines.append(
+                    _(
+                        "The bot has been able to identify the issue."
+                        " Read the details above for more information."
+                    )
+                )
 
         return "\n".join(lines)
 
