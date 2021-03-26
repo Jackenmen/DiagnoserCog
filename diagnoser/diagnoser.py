@@ -1,7 +1,6 @@
 # TODO: Ensure consistency for labels
 # TODO: Split IssueDiagnoser in a couple of mixins
 # TODO: Replace lists with tuples
-# TODO: Add "No further checks have been ran." line
 # TODO: Improve resolutions to work well with the rest of the string
 from __future__ import annotations
 
@@ -682,6 +681,7 @@ class IssueDiagnoser:
                 )
             )
         else:
+            lines.append("No further checks have been ran.\n")
             if result.resolution:
                 lines.append(
                     _("The bot has been able to identify the issue.") + f" {result.resolution}"
