@@ -1,13 +1,20 @@
+# TODO: Ensure consistency for labels
+# TODO: Split IssueDiagnoser in a couple of mixins
+# TODO: Replace lists with tuples
+# TODO: Add "No further checks have been ran." line
+# TODO: Improve resolutions to work well with the rest of the string
 from __future__ import annotations
 
+import itertools
 from copy import copy
 from dataclasses import dataclass
+from functools import partial
 from typing import Awaitable, Callable, Iterable, List, Optional, Union
 
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
-from redbot.core.utils.chat_formatting import bold, inline
+from redbot.core.utils.chat_formatting import bold, format_perms_list, inline
 
 _ = lambda s: s
 
@@ -49,6 +56,7 @@ class IssueDiagnoser:
 
         self.ctx = await self.bot.get_context(self.message)
 
+    # reusable methods
     async def _check_until_fail(
         self,
         label: str,
@@ -77,6 +85,26 @@ class IssueDiagnoser:
             command = command.qualified_name
         return inline(f"{self._original_ctx.clean_prefix}{command}")
 
+    def _command_error_handler(
+        self,
+        msg: str,
+        label: str,
+        failed_with_message: str,
+        failed_without_message: str,
+    ) -> CheckResult:
+        command = self.ctx.command
+        details = (
+            failed_with_message.format(command=self._format_command_name(command), message=msg)
+            if msg
+            else failed_without_message.format(command=self._format_command_name(command))
+        )
+        return CheckResult(
+            False,
+            label,
+            details,
+        )
+
+    # all the checks
     async def _check_is_author_bot(self) -> CheckResult:
         label = _("Check if the command caller is not a bot")
         if not self.author.bot:
@@ -296,6 +324,305 @@ class IssueDiagnoser:
 
         return CheckResult(True, label)
 
+    async def _check_dpy_can_run(self) -> CheckResult:
+        command = self.ctx.command
+        label = _("Run all of the checks")
+        try:
+            if await super(commands.Command, command).can_run(self.ctx):
+                return CheckResult(True, label)
+        except commands.DisabledCommand:
+            details = (
+                _("The given command is disabled in this guild.")
+                if command is self.command
+                else _("One of the parents of the given command is disabled globally.")
+            )
+            return CheckResult(
+                False,
+                label,
+                details,
+                _(
+                    "To fix this issue, you can run {command}"
+                    " which will enable the {affected_command} command in this guild."
+                ).format(
+                    command=self._format_command_name(f"command enable guild {command}"),
+                    affected_command=self._format_command_name(command),
+                ),
+            )
+        except commands.CommandError:
+            # we want to narrow this down to specific type of checks (bot/cog/command)
+            pass
+
+        return await self._check_until_fail(
+            label,
+            [
+                self._check_dpy_can_run_bot,
+                self._check_dpy_can_run_cog,
+                self._check_dpy_can_run_command,
+            ],
+            final_check_result=CheckResult(
+                False,
+                _("Other issues related to the checks"),
+                _(
+                    "There's an issue related to the checks for {command}"
+                    " but we're not able to determine the exact cause."
+                ),
+                _(
+                    "To fix this issue, a manual review of"
+                    " the global, cog and command checks is required."
+                ),
+            ),
+        )
+
+    async def _check_dpy_can_run_bot(self) -> CheckResult:
+        label = _("Run the global checks")
+        msg = ""
+        try:
+            if await self.bot.can_run(self.ctx):
+                return CheckResult(True, label)
+        except commands.CommandError as e:
+            msg = str(e)
+        return self._command_error_handler(
+            msg,
+            label,
+            _(
+                "One of the global checks for the command {command} failed with a message:\n"
+                "{message}"
+            ),
+            _("One of the global checks for the command {command} failed without a message."),
+        )
+
+    async def _check_dpy_can_run_cog(self) -> CheckResult:
+        label = _("Run the cog check")
+        cog = self.ctx.command.cog
+        if cog is None:
+            return CheckResult(True, label)
+        local_check = commands.Cog._get_overridden_method(cog.cog_check)
+        if local_check is None:
+            return CheckResult(True, label)
+
+        msg = ""
+        try:
+            if await discord.utils.maybe_coroutine(local_check, self.ctx):
+                return CheckResult(True, label)
+        except commands.CommandError as e:
+            msg = str(e)
+        return self._command_error_handler(
+            msg,
+            label,
+            _("The cog check for the command {command} failed with a message:\n{message}"),
+            _("The cog check for the command {command} failed without a message."),
+        )
+
+    async def _check_dpy_can_run_command(self) -> CheckResult:
+        label = _("Run the command checks")
+        predicates = self.ctx.command.checks
+        if not predicates:
+            return CheckResult(True, label)
+
+        msg = ""
+        try:
+            if await discord.utils.async_all(predicate(self.ctx) for predicate in predicates):
+                return CheckResult(True, label)
+        except commands.CommandError as e:
+            msg = str(e)
+        return self._command_error_handler(
+            msg,
+            label,
+            _(
+                "One of the command checks for the command {command} failed with a message:\n"
+                "{message}"
+            ),
+            _("One of the command checks for the command {command} failed without a message."),
+        )
+
+    async def _check_requires(self) -> CheckResult:
+        return await self._check_requires_impl(_("Check permissions"), self.ctx.command)
+
+    async def _check_requires_cog(self) -> CheckResult:
+        label = _("Check permissions for {cog}").format(cog=inline(self.ctx.cog.qualified_name))
+        if self.ctx.cog is None:
+            return CheckResult(True, label)
+        return await self._check_requires_impl(label, self.ctx.cog)
+
+    async def _check_requires_impl(
+        self, label: str, cog_or_command: commands.CogCommandMixin
+    ) -> CheckResult:
+        original_perm_state = self.ctx.permission_state
+        try:
+            allowed = await cog_or_command.requires.verify(self.ctx)
+        except commands.DisabledCommand:
+            return CheckResult(
+                False,
+                label,
+                _("The cog of the given command is disabled in this guild."),
+                _(
+                    "To fix this issue, you can run {command}"
+                    " which will enable the {affected_cog} cog in this guild."
+                ).format(
+                    command=self._format_command_name(
+                        f"command enablecog {self.ctx.cog.qualified_name}"
+                    ),
+                    affected_cog=inline(self.ctx.cog.qualified_name),
+                ),
+            )
+        except commands.BotMissingPermissions as e:
+            # No, go away, "some" can refer to a single permission so plurals are just fine here!
+            # Seriously. They are. Don't even question it.
+            details = (
+                _(
+                    "Bot is missing some of the channel permissions ({permissions})"
+                    " required by the {cog} cog."
+                ).format(
+                    permissions=format_perms_list(e.missing),
+                    cog=inline(cog_or_command.qualified_name),
+                )
+                if cog_or_command is self.ctx.cog
+                else _(
+                    "Bot is missing some of the channel permissions ({permissions})"
+                    " required by the {command} command."
+                ).format(
+                    permissions=format_perms_list(e.missing),
+                    command=self._format_command_name(cog_or_command),
+                )
+            )
+            return CheckResult(
+                False,
+                label,
+                details,
+                _(
+                    "To fix this issue, grant the required permissions to the bot"
+                    " through role settings or channel overrides."
+                ),
+            )
+        if allowed:
+            return CheckResult(True, label)
+
+        self.ctx.permission_state = original_perm_state
+        return await self._check_until_fail(
+            label,
+            [
+                partial(self._check_requires_bot_owner, cog_or_command),
+                partial(self._check_requires_permission_hooks, cog_or_command),
+            ],
+            # TODO: Split the `final_check_result` into parts to be ran by this function
+            final_check_result=CheckResult(
+                False,
+                _("User's discord permissions, privilege level and rules from Permissions cog"),
+                _("One of the above is the issue."),
+                _(
+                    "To fix this issue, verify each of these"
+                    " and determine which part is the issue."
+                ),
+            ),
+        )
+
+    async def _check_requires_bot_owner(
+        self, cog_or_command: commands.CogCommandMixin
+    ) -> CheckResult:
+        label = _("Ensure that the command is not bot owner only")
+        if cog_or_command.requires.privilege_level is not commands.PrivilegeLevel.BOT_OWNER:
+            return CheckResult(True, label)
+        # we don't need to check whether the user is bot owner
+        # as call to `verify()` would already succeed if that were the case
+        return CheckResult(
+            False,
+            label,
+            _("The command is bot owner only and the given user is not a bot owner."),
+            _("This cannot be fixed - regular users cannot run bot owner only commands."),
+        )
+
+    async def _check_requires_permission_hooks(
+        self, cog_or_command: commands.CogCommandMixin
+    ) -> CheckResult:
+        label = _("Check the result of permission hooks")
+        result = await self.bot.verify_permissions_hooks(self.ctx)
+        if result is None:
+            return CheckResult(True, label)
+        if result is True:
+            # this situation is abnormal as in this situation,
+            # call to `verify()` would already succeed and we wouldn't get to this point
+            return CheckResult(
+                False,
+                label,
+                _("Fatal error: the result of permission hooks is inconsistent."),
+                _("To fix this issue, a manual review of the installed cogs is required."),
+            )
+        return CheckResult(
+            False,
+            label,
+            _("The access has been denied by one of the bot's permissions hooks."),
+            _("To fix this issue, a manual review of the installed cogs is required."),
+        )
+
+    async def _check_checks(self, command: commands.Command) -> CheckResult:
+        label = _("Run checks for the command {command}").format(
+            command=self._format_command_name(command)
+        )
+
+        self.ctx.command = command
+        original_perm_state = self.ctx.permission_state
+        try:
+            can_run = await command.can_run(self.ctx, change_permission_state=True)
+        except commands.CommandError:
+            can_run = False
+
+        if can_run:
+            return CheckResult(True, label)
+
+        self.ctx.permission_state = original_perm_state
+        return await self._check_until_fail(
+            label,
+            [
+                self._check_dpy_can_run,
+                self._check_requires,
+            ],
+            final_check_result=CheckResult(
+                False,
+                _("Other command checks"),
+                _("The given command is failing one of the required checks."),
+                _("To fix this issue, a manual review of the command's checks is required."),
+            ),
+        )
+
+    async def _check_can_run_issues(self) -> CheckResult:
+        label = _("Command checks")
+        ctx = self.ctx
+        try:
+            can_run = await self.command.can_run(ctx, check_all_parents=True)
+        except commands.CommandError:
+            # we want to get more specific error by narrowing down the scope,
+            # so we just ignore handling this here
+            #
+            # NOTE: it might be worth storing this information in case we get to
+            # `final_check_result`, although that's not very likely
+            # Similar exception handlers further down the line could do that
+            # as well if I'm gonna implement it here.
+            pass
+        else:
+            if can_run:
+                return CheckResult(True, label)
+
+        ctx.permission_state = commands.PermState.NORMAL
+        ctx.command = self.command.root_parent or self.command
+
+        # slight discrepancy here - we're doing cog-level verify before top-level can_run
+        return await self._check_until_fail(
+            label,
+            itertools.chain(
+                (self._check_requires_cog,),
+                (
+                    partial(self._check_checks, command)
+                    for command in itertools.chain(reversed(self.command.parents), (self.command,))
+                ),
+            ),
+            final_check_result=CheckResult(
+                False,
+                _("Other command checks"),
+                _("The given command is failing one of the required checks."),
+                _("To fix this issue, a manual review of the command's checks is required."),
+            ),
+        )
+
     def get_message_from_check_result(self, result: CheckResult, *, prefix: str = "") -> List[str]:
         lines = []
         if not result.details:
@@ -338,6 +665,7 @@ class IssueDiagnoser:
             [
                 self._check_global_checks_issues,
                 self._check_disabled_command_issues,
+                self._check_can_run_issues,
             ],
         )
         lines.extend(self.get_message_from_check_result(result))
@@ -348,15 +676,10 @@ class IssueDiagnoser:
                     "All checks passed and no issues were detected."
                     " Make sure that the given parameters correspond to"
                     " the channel, user, and command name that have been problematic.\n\n"
-                    "If you still can't find the issue, then you can use {command} command"
-                    " from Permissions cog to see whether any of the command checks are failing."
-                    " Eventually, this command will be able to do this as well"
-                    " and provide more specific resolutions, but for now you will sadly have to"
-                    " do a bit more manual work to get this resolved, sorry!"
-                    # "If you still can't find the issue, it is likely that one of the 3rd-party cogs"
-                    # " you're using adds a global or cog local before invoke hook that prevents"
-                    # " the command from getting invoked as this can't be diagnosed with this tool."
-                ).format(command=inline(f"{self.ctx.clean_prefix}permissions canrun"))
+                    "If you still can't find the issue, it is likely that one of the 3rd-party cogs"
+                    " you're using adds a global or cog local before invoke hook that prevents"
+                    " the command from getting invoked as this can't be diagnosed with this tool."
+                )
             )
         else:
             lines.append(
