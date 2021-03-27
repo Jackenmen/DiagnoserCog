@@ -700,9 +700,9 @@ class IssueDiagnoser(RootDiagnosersMixin, IssueDiagnoserBase):
 
         for idx, subresult in enumerate(result.details, start=1):
             status = (
-                "Passed \N{WHITE HEAVY CHECK MARK}"
+                _("Passed") + " \N{WHITE HEAVY CHECK MARK}"
                 if subresult.success
-                else "Failed \N{NO ENTRY}\N{VARIATION SELECTOR-16}"
+                else _("Failed") + " \N{NO ENTRY}\N{VARIATION SELECTOR-16}"
             )
             lines.append(f"{prefix}{idx}. {subresult.label}: {status}")
             lines.extend(self._get_message_from_check_result(subresult, prefix=f"{prefix}{idx}."))
