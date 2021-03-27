@@ -269,7 +269,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
             _(
                 "To fix this issue, you can either remove the user"
                 " from the local blocklist, or clear the local blocklist.\n"
-                " If you want to keep the local blocklist, you can run {command_1} which will"
+                "If you want to keep the local blocklist, you can run {command_1} which will"
                 " remove {user} from the local blocklist.\n"
                 "If you instead want to clear the local blocklist and let all users"
                 " run commands freely, you can run {command_2} to do that."
