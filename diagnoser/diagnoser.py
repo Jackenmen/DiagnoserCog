@@ -229,7 +229,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
                     " run commands freely, you can run {command_2} to do that."
                 ).format(
                     command_1=self._format_command_name(
-                        f"localblocklist remove {' '.join(to_remove)}"
+                        f"localblocklist remove {' '.join(map(str, to_remove))}"
                     ),
                     roles=humanize_list(role_names),
                     command_2=self._format_command_name("localblocklist clear"),
@@ -254,7 +254,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
                     " run commands freely, you can run {command_2} to do that."
                 ).format(
                     command_1=self._format_command_name(
-                        f"localblocklist remove {' '.join(to_remove)}"
+                        f"localblocklist remove {' '.join(map(str, to_remove))}"
                     ),
                     user=self.author,
                     roles=humanize_list(role_names),
