@@ -565,7 +565,7 @@ class DetailedCommandChecksMixin(IssueDiagnoserBase):
             label,
             (
                 self._check_dpy_can_run,
-                self._check_requires,
+                self._check_requires_command,
             ),
             final_check_result=CheckResult(
                 False,
