@@ -1,4 +1,3 @@
-# TODO: Improve resolutions to work well with the rest of the string
 from __future__ import annotations
 
 import itertools
