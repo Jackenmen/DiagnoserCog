@@ -10,7 +10,7 @@ from typing import Awaitable, Callable, Iterable, List, Optional, Union
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
-from redbot.core.utils.chat_formatting import bold, format_perms_list, inline
+from redbot.core.utils.chat_formatting import bold, format_perms_list, humanize_list, inline
 
 _ = lambda s: s
 
@@ -144,95 +144,153 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
             resolution,
         )
 
+    async def _get_detailed_global_whitelist_blacklist_result(self, label: str) -> CheckResult:
+        global_whitelist = await self.bot._whiteblacklist_cache.get_whitelist()
+        if global_whitelist:
+            return CheckResult(
+                False,
+                label,
+                _("Global allowlist prevents the user from running this command."),
+                _(
+                    "To fix this issue, you can either add the user to the allowlist,"
+                    " or clear the allowlist.\n"
+                    " If you want to keep the allowlist, you can run {command_1} which will"
+                    " add the {user} user to the allowlist.\n"
+                    "If you instead want to clear the allowlist and let all users"
+                    " run commands freely, you can run {command_2} to do that."
+                ).format(
+                    command_1=self._format_command_name(f"allowlist add {self.author.id}"),
+                    user=self.author,
+                    command_2=self._format_command_name("allowlist clear"),
+                ),
+            )
+        return CheckResult(
+            False,
+            label,
+            _("Global blocklist prevents the user from running this command."),
+            _(
+                "To fix this issue, you can either remove the user from the blocklist,"
+                " or clear the blocklist.\n"
+                " If you want to keep the blocklist, you can run {command_1} which will"
+                " remove the {user} user from the blocklist.\n"
+                "If you instead want to clear the blocklist and let all users"
+                " run commands freely, you can run {command_2} to do that."
+            ).format(
+                command_1=self._format_command_name(f"blocklist remove {self.author.id}"),
+                user=self.author,
+                command_2=self._format_command_name("blocklist clear"),
+            ),
+        )
+
+    async def _get_detailed_local_whitelist_blacklist_result(self, label: str) -> CheckResult:
+        # this method skips guild owner check as the earlier checks wouldn't fail
+        # if the user were guild owner
+        guild_whitelist = await self.bot._whiteblacklist_cache.get_whitelist(self.guild)
+        if guild_whitelist:
+            return CheckResult(
+                False,
+                label,
+                _("Local allowlist prevents the user from running this command."),
+                _(
+                    "To fix this issue, you can either add the user or one of their roles"
+                    " to the local allowlist, or clear the local allowlist.\n"
+                    " If you want to keep the local allowlist, you can run {command_1} which will"
+                    " add the {user} user to the local allowlist.\n"
+                    "If you instead want to clear the local allowlist and let all users"
+                    " run commands freely, you can run {command_2} to do that."
+                ).format(
+                    command_1=self._format_command_name(f"localallowlist add {self.author.id}"),
+                    user=self.author,
+                    command_2=self._format_command_name("localallowlist clear"),
+                ),
+            )
+
+        details = _("Local blocklist prevents the user from running this command.")
+        guild_blacklist = await self.bot._whiteblacklist_cache.get_blacklist(self.guild)
+        ids = {role.id for role in self.author.roles if not role.is_default}
+        ids.add(self.author.id)
+        intersection = ids | guild_blacklist
+        try:
+            intersection.remove(self.author.id)
+        except KeyError:
+            # author is not part of the blocklist
+            to_remove = list(intersection)
+            role_names = [self.guild.get_role(role_id).name for role_id in to_remove]
+            return CheckResult(
+                False,
+                label,
+                details,
+                _(
+                    "To fix this issue, you can either remove the user's roles"
+                    " from the local blocklist, or clear the local blocklist.\n"
+                    " If you want to keep the local blocklist, you can run {command_1} which will"
+                    " remove the user's roles ({roles}) from the local blocklist.\n"
+                    "If you instead want to clear the local blocklist and let all users"
+                    " run commands freely, you can run {command_2} to do that."
+                ).format(
+                    command_1=self._format_command_name(
+                        f"localblocklist remove {' '.join(to_remove)}"
+                    ),
+                    roles=humanize_list(role_names),
+                    command_2=self._format_command_name("localblocklist clear"),
+                ),
+            )
+
+        if intersection:
+            # both author and some of their roles are part of the blocklist
+            to_remove = list(intersection)
+            role_names = [self.guild.get_role(role_id).name for role_id in to_remove]
+            to_remove.append(self.author.id)
+            return CheckResult(
+                False,
+                label,
+                details,
+                _(
+                    "To fix this issue, you can either remove the user and their roles"
+                    " from the local blocklist, or clear the local blocklist.\n"
+                    " If you want to keep the local blocklist, you can run {command_1} which will"
+                    " remove the {user} user and their roles ({roles}) from the local blocklist.\n"
+                    "If you instead want to clear the local blocklist and let all users"
+                    " run commands freely, you can run {command_2} to do that."
+                ).format(
+                    command_1=self._format_command_name(
+                        f"localblocklist remove {' '.join(to_remove)}"
+                    ),
+                    user=self.author,
+                    roles=humanize_list(role_names),
+                    command_2=self._format_command_name("localblocklist clear"),
+                ),
+            )
+
+        # only the author is part of the blocklist
+        return CheckResult(
+            False,
+            label,
+            details,
+            _(
+                "To fix this issue, you can either remove the user"
+                " from the local blocklist, or clear the local blocklist.\n"
+                " If you want to keep the local blocklist, you can run {command_1} which will"
+                " remove the {user} user from the local blocklist.\n"
+                "If you instead want to clear the local blocklist and let all users"
+                " run commands freely, you can run {command_2} to do that."
+            ).format(
+                command_1=self._format_command_name(f"localblocklist remove {self.author.id}"),
+                user=self.author,
+                command_2=self._format_command_name("localblocklist clear"),
+            ),
+        )
+
     async def _check_whitelist_blacklist_issues(self) -> CheckResult:
-        # TODO: Okay, so I need a way better error messages here,
-        # because if allowlist is non-empty, we want the user to check that the user/role ID
-        # is part of the allowlist.
-        # And if allowlist is empty, we want the user to check that the user/role ID
-        # is NOT a part of the blocklist.
-        #
-        # Damn, this is complicated...
         label = _("Allowlist and blocklist checks")
         if await self.bot.allowed_by_whitelist_blacklist(self.author):
             return CheckResult(True, label)
 
         is_global = not await self.bot.allowed_by_whitelist_blacklist(who_id=self.author.id)
         if is_global:
-            return CheckResult(
-                False,
-                label,
-                _("Global allowlist or blocklist prevents the user from running this command."),
-                _(
-                    "To fix this issue, check the lists returned by {command_1}"
-                    " and {command_2} commands~~, and ensure that the given user's ID ({user_id})"
-                    " isn't a part of either of them~~ (this resolution is not quite accurate, ask in support)."
-                ).format(
-                    command_1=self._format_command_name("allowlist list"),
-                    command_2=self._format_command_name("blocklist list"),
-                    user_id=self.author.id,
-                ),
-            )
+            return await self._get_detailed_global_whitelist_blacklist_result(label)
 
-        return CheckResult(
-            False,
-            label,
-            _(
-                "Local allowlist or blocklist prevents the user"
-                " or their roles from running this command."
-            ),
-            _(
-                "To fix this issue, check the lists returned by {command_1}"
-                " and {command_2} commands~~, and ensure that the given user's ID ({user_id}) or IDs of their roles"
-                " aren't a part of either of them~~ (this resolution is not quite accurate, ask in support)."
-            ).format(
-                command_1=self._format_command_name("localallowlist list"),
-                command_2=self._format_command_name("localblocklist list"),
-                user_id=self.author.id,
-            ),
-        )
-
-        # this code is more granular, but sadly doesn't work due to a bug in Core Red
-        is_role_related = not await self.bot.allowed_by_whitelist_blacklist(
-            who_id=self.author.id, guild_id=self.guild.id
-        )
-        if is_role_related:
-            # Remember when I said, I don't want to touch private attrs?
-            # Well, I saw what `localallowlist list` command returns and I've noticed how hard
-            # it is to read it...
-            # TODO: Let's actually give more helpful resolution here.
-            return CheckResult(
-                False,
-                label,
-                _(
-                    "Local allowlist or blocklist prevents one of the roles the user has"
-                    " from running this command."
-                ),
-                _(
-                    "To fix this issue, check the lists returned by {command_1}"
-                    " and {command_2} commands~~, and ensure that none of the IDs of roles"
-                    " of the given user's are a part of either of them~~"
-                    " (this resolution is not quite accurate, ask in support)."
-                ).format(
-                    command_1=self._format_command_name("localallowlist list"),
-                    command_2=self._format_command_name("localblocklist list"),
-                    user_id=self.author.id,
-                ),
-            )
-
-        return CheckResult(
-            False,
-            label,
-            _("Local allowlist or blocklist prevents the user from running this command."),
-            _(
-                "To fix this issue, check the lists returned by {command_1}"
-                " and {command_2} commands~~, and ensure that the given user's ID ({user_id})"
-                " isn't a part of either of them~~ (this resolution is not quite accurate, ask in support)."
-            ).format(
-                command_1=self._format_command_name("localallowlist list"),
-                command_2=self._format_command_name("localblocklist list"),
-                user_id=self.author.id,
-            ),
-        )
+        return await self._get_detailed_local_whitelist_blacklist_result(label)
 
 
 class DetailedCommandChecksMixin(IssueDiagnoserBase):
