@@ -209,7 +209,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
         guild_blacklist = await self.bot._whiteblacklist_cache.get_blacklist(self.guild)
         ids = {role.id for role in self.author.roles if not role.is_default}
         ids.add(self.author.id)
-        intersection = ids | guild_blacklist
+        intersection = ids & guild_blacklist
         try:
             intersection.remove(self.author.id)
         except KeyError:
