@@ -705,29 +705,22 @@ class IssueDiagnoser(RootDiagnosersMixin, IssueDiagnoserBase):
                 else _("Failed") + " \N{NO ENTRY}\N{VARIATION SELECTOR-16}"
             )
             lines.append(f"{prefix}{idx}. {subresult.label}: {status}")
-            lines.extend(self._get_message_from_check_result(subresult, prefix=f"{prefix}{idx}."))
+            lines.extend(
+                self._get_message_from_check_result(subresult, prefix=f"  {prefix}{idx}.")
+            )
         return lines
+
+    def _get_details_from_check_result(self, result: CheckResult) -> str:
+        if not result.details:
+            return ""
+        if isinstance(result.details, str):
+            return result.details
+
+        return self._get_details_from_check_result(result.details[-1])
 
     async def diagnose(self) -> str:
         await self._prepare()
-        lines = [
-            bold(
-                _(
-                    "Diagnose results for issues of {user}"
-                    " when trying to run {command_name} command in {channel} channel:\n"
-                ).format(
-                    user=self.author,
-                    command_name=inline(
-                        # needs to be _original_ctx - when bot is passed as the author,
-                        # Context parser won't go far enough to parse for prefix
-                        f"{self._original_ctx.clean_prefix}{self.command.qualified_name}"
-                    ),
-                    channel=self.channel.mention,
-                ),
-                # not perfect, but will do...
-                escape_formatting=False,
-            )
-        ]
+        lines = []
         result = await self._check_until_fail(
             "",
             (
@@ -736,8 +729,6 @@ class IssueDiagnoser(RootDiagnosersMixin, IssueDiagnoserBase):
                 self._check_can_run_issues,
             ),
         )
-        lines.extend(self._get_message_from_check_result(result))
-        lines.append("")
         if result.success:
             lines.append(
                 _(
@@ -750,18 +741,19 @@ class IssueDiagnoser(RootDiagnosersMixin, IssueDiagnoserBase):
                 )
             )
         else:
-            lines.append("No further checks have been ran.\n")
+            lines.append(_("The bot has been able to identify the issue."))
+            details = self._get_details_from_check_result(result)
+            if details:
+                lines.append(bold(_("Detected issue: ")) + details)
             if result.resolution:
-                lines.append(
-                    _("The bot has been able to identify the issue.") + f" {result.resolution}"
-                )
-            else:
-                lines.append(
-                    _(
-                        "The bot has been able to identify the issue."
-                        " Read the details above for more information."
-                    )
-                )
+                lines.append(bold(_("Solution: ")) + result.resolution)
+
+        lines.append(_("\nHere's a detailed report in case you need it:"))
+        lines.append(">>> " + bold(_("Channel: ")) + self.channel.mention)
+        lines.append(bold(_("Command caller: ")) + str(self.author))
+        lines.append(bold(_("Command: ")) + self._format_command_name(self.command))
+        lines.append(bold(_("Tests that have been ran:")))
+        lines.extend(self._get_message_from_check_result(result))
 
         return "\n".join(lines)
 
