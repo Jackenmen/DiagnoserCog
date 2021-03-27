@@ -676,7 +676,7 @@ class RootDiagnosersMixin(
             itertools.chain(
                 (self._check_requires_cog,),
                 (
-                    partial(self._check_checks, command)
+                    partial(self._check_dpy_checks_and_requires, command)
                     for command in itertools.chain(reversed(self.command.parents), (self.command,))
                 ),
             ),
