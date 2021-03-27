@@ -207,7 +207,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
 
         details = _("Local blocklist prevents the user from running this command.")
         guild_blacklist = await self.bot._whiteblacklist_cache.get_blacklist(self.guild)
-        ids = {role.id for role in self.author.roles if not role.is_default}
+        ids = {role.id for role in self.author.roles if not role.is_default()}
         ids.add(self.author.id)
         intersection = ids & guild_blacklist
         try:
