@@ -1,4 +1,3 @@
-# TODO: Ensure consistency for labels
 # TODO: Improve resolutions to work well with the rest of the string
 from __future__ import annotations
 
@@ -257,8 +256,8 @@ class DetailedCommandChecksMixin(IssueDiagnoserBase):
         )
 
     async def _check_dpy_can_run(self) -> CheckResult:
+        label = _("Global, cog and command checks")
         command = self.ctx.command
-        label = _("Run all of the checks")
         try:
             if await super(commands.Command, command).can_run(self.ctx):
                 return CheckResult(True, label)
@@ -306,7 +305,7 @@ class DetailedCommandChecksMixin(IssueDiagnoserBase):
         )
 
     async def _check_dpy_can_run_bot(self) -> CheckResult:
-        label = _("Run the global checks")
+        label = _("Global checks")
         msg = ""
         try:
             if await self.bot.can_run(self.ctx):
@@ -324,7 +323,7 @@ class DetailedCommandChecksMixin(IssueDiagnoserBase):
         )
 
     async def _check_dpy_can_run_cog(self) -> CheckResult:
-        label = _("Run the cog check")
+        label = _("Cog check")
         cog = self.ctx.command.cog
         if cog is None:
             return CheckResult(True, label)
@@ -346,7 +345,7 @@ class DetailedCommandChecksMixin(IssueDiagnoserBase):
         )
 
     async def _check_dpy_can_run_command(self) -> CheckResult:
-        label = _("Run the command checks")
+        label = _("Command checks")
         predicates = self.ctx.command.checks
         if not predicates:
             return CheckResult(True, label)
@@ -368,10 +367,12 @@ class DetailedCommandChecksMixin(IssueDiagnoserBase):
         )
 
     async def _check_requires_command(self) -> CheckResult:
-        return await self._check_requires(_("Check permissions"), self.ctx.command)
+        return await self._check_requires(_("Permissions verification"), self.ctx.command)
 
     async def _check_requires_cog(self) -> CheckResult:
-        label = _("Check permissions for {cog}").format(cog=inline(self.ctx.cog.qualified_name))
+        label = _("Permissions verification for {cog} cog").format(
+            cog=inline(self.ctx.cog.qualified_name)
+        )
         if self.ctx.cog is None:
             return CheckResult(True, label)
         return await self._check_requires(label, self.ctx.cog)
@@ -466,7 +467,7 @@ class DetailedCommandChecksMixin(IssueDiagnoserBase):
     async def _check_requires_permission_hooks(
         self, cog_or_command: commands.CogCommandMixin
     ) -> CheckResult:
-        label = _("Check the result of permission hooks")
+        label = _("Permission hooks")
         result = await self.bot.verify_permissions_hooks(self.ctx)
         if result is None:
             return CheckResult(True, label)
@@ -487,7 +488,7 @@ class DetailedCommandChecksMixin(IssueDiagnoserBase):
         )
 
     async def _check_dpy_checks_and_requires(self, command: commands.Command) -> CheckResult:
-        label = _("Run checks for the command {command}").format(
+        label = _("Checks and permissions verification for the command {command}").format(
             command=self._format_command_name(command)
         )
 
@@ -523,7 +524,7 @@ class RootDiagnosersMixin(
     IssueDiagnoserBase,
 ):
     async def _check_global_call_once_checks_issues(self) -> CheckResult:
-        label = _("Global checks")
+        label = _("Global 'call once' checks")
         # To avoid running core's global checks twice, we just run them all regularly
         # and if it turns out that invokation would end here, we go back and check each of
         # core's global check individually to give more precise error message.
@@ -545,9 +546,9 @@ class RootDiagnosersMixin(
             ),
             final_check_result=CheckResult(
                 False,
-                _("Other 'global call once checks'"),
+                _("Other global 'call once' checks"),
                 _(
-                    "One of the 'global call once checks' implemented by a 3rd-party cog"
+                    "One of the global 'call once' checks implemented by a 3rd-party cog"
                     " prevents this command from being ran."
                 ),
                 _("To fix this issue, a manual review of the installed cogs is required."),
@@ -591,7 +592,7 @@ class RootDiagnosersMixin(
         return CheckResult(True, label)
 
     async def _check_can_run_issues(self) -> CheckResult:
-        label = _("Command checks")
+        label = _("Checks and permissions verification")
         ctx = self.ctx
         try:
             can_run = await self.command.can_run(ctx, check_all_parents=True)
