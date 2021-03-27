@@ -1,5 +1,4 @@
 # TODO: Ensure consistency for labels
-# TODO: Split IssueDiagnoser in a couple of mixins
 # TODO: Improve resolutions to work well with the rest of the string
 from __future__ import annotations
 
@@ -25,7 +24,7 @@ class CheckResult:
     resolution: str = ""
 
 
-class IssueDiagnoser:
+class IssueDiagnoserBase:
     def __init__(
         self,
         bot: Red,
@@ -83,26 +82,8 @@ class IssueDiagnoser:
             command = command.qualified_name
         return inline(f"{self._original_ctx.clean_prefix}{command}")
 
-    def _command_error_handler(
-        self,
-        msg: str,
-        label: str,
-        failed_with_message: str,
-        failed_without_message: str,
-    ) -> CheckResult:
-        command = self.ctx.command
-        details = (
-            failed_with_message.format(command=self._format_command_name(command), message=msg)
-            if msg
-            else failed_without_message.format(command=self._format_command_name(command))
-        )
-        return CheckResult(
-            False,
-            label,
-            details,
-        )
 
-    # all the checks
+class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
     async def _check_is_author_bot(self) -> CheckResult:
         label = _("Check if the command caller is not a bot")
         if not self.author.bot:
@@ -254,73 +235,26 @@ class IssueDiagnoser:
             ),
         )
 
-    async def _check_global_checks_issues(self) -> CheckResult:
-        label = _("Global checks")
-        # To avoid running core's global checks twice, we just run them all regularly
-        # and if it turns out that invokation would end here, we go back and check each of
-        # core's global check individually to give more precise error message.
-        try:
-            can_run = await self.bot.can_run(self.ctx, call_once=True)
-        except commands.CommandError:
-            pass
-        else:
-            if can_run:
-                return CheckResult(True, label)
 
-        return await self._check_until_fail(
-            label,
-            (
-                self._check_is_author_bot,
-                self._check_can_bot_send_messages,
-                self._check_ignored_issues,
-                self._check_whitelist_blacklist_issues,
-            ),
-            final_check_result=CheckResult(
-                False,
-                _("Other 'global call once checks'"),
-                _(
-                    "One of the 'global call once checks' implemented by a 3rd-party cog"
-                    " prevents this command from being ran."
-                ),
-                _("To fix this issue, a manual review of the installed cogs is required."),
-            ),
-        )
-
-    async def _check_disabled_command_issues(self) -> CheckResult:
-        label = _("Check if the command is disabled")
+class DetailedCommandChecksMixin(IssueDiagnoserBase):
+    def _command_error_handler(
+        self,
+        msg: str,
+        label: str,
+        failed_with_message: str,
+        failed_without_message: str,
+    ) -> CheckResult:
         command = self.ctx.command
-
-        for parent in reversed(command.parents):
-            if parent.enabled:
-                continue
-            return CheckResult(
-                False,
-                label,
-                _("One of the parents of the given command is disabled globally."),
-                _(
-                    "To fix this issue, you can run {command}"
-                    " which will enable the {affected_command} command globally."
-                ).format(
-                    command=self._format_command_name(f"command enable global {parent}"),
-                    affected_command=self._format_command_name(parent),
-                ),
-            )
-
-        if not command.enabled:
-            return CheckResult(
-                False,
-                label,
-                _("The given command is disabled globally."),
-                _(
-                    "To fix this issue, you can run {command}"
-                    " which will enable the {affected_command} command globally."
-                ).format(
-                    command=self._format_command_name(f"command enable global {command}"),
-                    affected_command=self._format_command_name(command),
-                ),
-            )
-
-        return CheckResult(True, label)
+        details = (
+            failed_with_message.format(command=self._format_command_name(command), message=msg)
+            if msg
+            else failed_without_message.format(command=self._format_command_name(command))
+        )
+        return CheckResult(
+            False,
+            label,
+            details,
+        )
 
     async def _check_dpy_can_run(self) -> CheckResult:
         command = self.ctx.command
@@ -433,16 +367,16 @@ class IssueDiagnoser:
             _("One of the command checks for the command {command} failed without a message."),
         )
 
-    async def _check_requires(self) -> CheckResult:
-        return await self._check_requires_impl(_("Check permissions"), self.ctx.command)
+    async def _check_requires_command(self) -> CheckResult:
+        return await self._check_requires(_("Check permissions"), self.ctx.command)
 
     async def _check_requires_cog(self) -> CheckResult:
         label = _("Check permissions for {cog}").format(cog=inline(self.ctx.cog.qualified_name))
         if self.ctx.cog is None:
             return CheckResult(True, label)
-        return await self._check_requires_impl(label, self.ctx.cog)
+        return await self._check_requires(label, self.ctx.cog)
 
-    async def _check_requires_impl(
+    async def _check_requires(
         self, label: str, cog_or_command: commands.CogCommandMixin
     ) -> CheckResult:
         original_perm_state = self.ctx.permission_state
@@ -552,7 +486,7 @@ class IssueDiagnoser:
             _("To fix this issue, a manual review of the installed cogs is required."),
         )
 
-    async def _check_checks(self, command: commands.Command) -> CheckResult:
+    async def _check_dpy_checks_and_requires(self, command: commands.Command) -> CheckResult:
         label = _("Run checks for the command {command}").format(
             command=self._format_command_name(command)
         )
@@ -581,6 +515,80 @@ class IssueDiagnoser:
                 _("To fix this issue, a manual review of the command's checks is required."),
             ),
         )
+
+
+class RootDiagnosersMixin(
+    DetailedGlobalCallOnceChecksMixin,
+    DetailedCommandChecksMixin,
+    IssueDiagnoserBase,
+):
+    async def _check_global_call_once_checks_issues(self) -> CheckResult:
+        label = _("Global checks")
+        # To avoid running core's global checks twice, we just run them all regularly
+        # and if it turns out that invokation would end here, we go back and check each of
+        # core's global check individually to give more precise error message.
+        try:
+            can_run = await self.bot.can_run(self.ctx, call_once=True)
+        except commands.CommandError:
+            pass
+        else:
+            if can_run:
+                return CheckResult(True, label)
+
+        return await self._check_until_fail(
+            label,
+            (
+                self._check_is_author_bot,
+                self._check_can_bot_send_messages,
+                self._check_ignored_issues,
+                self._check_whitelist_blacklist_issues,
+            ),
+            final_check_result=CheckResult(
+                False,
+                _("Other 'global call once checks'"),
+                _(
+                    "One of the 'global call once checks' implemented by a 3rd-party cog"
+                    " prevents this command from being ran."
+                ),
+                _("To fix this issue, a manual review of the installed cogs is required."),
+            ),
+        )
+
+    async def _check_disabled_command_issues(self) -> CheckResult:
+        label = _("Check if the command is disabled")
+        command = self.ctx.command
+
+        for parent in reversed(command.parents):
+            if parent.enabled:
+                continue
+            return CheckResult(
+                False,
+                label,
+                _("One of the parents of the given command is disabled globally."),
+                _(
+                    "To fix this issue, you can run {command}"
+                    " which will enable the {affected_command} command globally."
+                ).format(
+                    command=self._format_command_name(f"command enable global {parent}"),
+                    affected_command=self._format_command_name(parent),
+                ),
+            )
+
+        if not command.enabled:
+            return CheckResult(
+                False,
+                label,
+                _("The given command is disabled globally."),
+                _(
+                    "To fix this issue, you can run {command}"
+                    " which will enable the {affected_command} command globally."
+                ).format(
+                    command=self._format_command_name(f"command enable global {command}"),
+                    affected_command=self._format_command_name(command),
+                ),
+            )
+
+        return CheckResult(True, label)
 
     async def _check_can_run_issues(self) -> CheckResult:
         label = _("Command checks")
@@ -621,7 +629,11 @@ class IssueDiagnoser:
             ),
         )
 
-    def get_message_from_check_result(self, result: CheckResult, *, prefix: str = "") -> List[str]:
+
+class IssueDiagnoser(RootDiagnosersMixin, IssueDiagnoserBase):
+    def _get_message_from_check_result(
+        self, result: CheckResult, *, prefix: str = ""
+    ) -> List[str]:
         lines = []
         if not result.details:
             return []
@@ -635,7 +647,7 @@ class IssueDiagnoser:
                 else "Failed \N{NO ENTRY}\N{VARIATION SELECTOR-16}"
             )
             lines.append(f"{prefix}{idx}. {subresult.label}: {status}")
-            lines.extend(self.get_message_from_check_result(subresult, prefix=f"{prefix}{idx}."))
+            lines.extend(self._get_message_from_check_result(subresult, prefix=f"{prefix}{idx}."))
         return lines
 
     async def diagnose(self) -> str:
@@ -661,12 +673,12 @@ class IssueDiagnoser:
         result = await self._check_until_fail(
             "",
             (
-                self._check_global_checks_issues,
+                self._check_global_call_once_checks_issues,
                 self._check_disabled_command_issues,
                 self._check_can_run_issues,
             ),
         )
-        lines.extend(self.get_message_from_check_result(result))
+        lines.extend(self._get_message_from_check_result(result))
         lines.append("")
         if result.success:
             lines.append(
