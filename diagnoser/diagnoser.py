@@ -615,7 +615,7 @@ class RootDiagnosersMixin(
 
     async def _check_disabled_command_issues(self) -> CheckResult:
         label = _("Check if the command is disabled")
-        command = self.ctx.command
+        command = self.command
 
         for parent in reversed(command.parents):
             if parent.enabled:
