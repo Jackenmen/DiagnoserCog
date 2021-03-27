@@ -9,7 +9,13 @@ from typing import Awaitable, Callable, Iterable, List, Optional, Union
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
-from redbot.core.utils.chat_formatting import bold, format_perms_list, humanize_list, inline
+from redbot.core.utils.chat_formatting import (
+    bold,
+    escape,
+    format_perms_list,
+    humanize_list,
+    inline,
+)
 
 _ = lambda s: s
 
@@ -159,7 +165,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
                     " run commands freely, you can run {command_2} to do that."
                 ).format(
                     command_1=self._format_command_name(f"allowlist add {self.author.id}"),
-                    user=self.author,
+                    user=escape(str(self.author), formatting=True),
                     command_2=self._format_command_name("allowlist clear"),
                 ),
             )
@@ -176,7 +182,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
                 " run commands freely, you can run {command_2} to do that."
             ).format(
                 command_1=self._format_command_name(f"blocklist remove {self.author.id}"),
-                user=self.author,
+                user=escape(str(self.author), formatting=True),
                 command_2=self._format_command_name("blocklist clear"),
             ),
         )
@@ -199,7 +205,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
                     " run commands freely, you can run {command_2} to do that."
                 ).format(
                     command_1=self._format_command_name(f"localallowlist add {self.author.id}"),
-                    user=self.author,
+                    user=escape(str(self.author), formatting=True),
                     command_2=self._format_command_name("localallowlist clear"),
                 ),
             )
@@ -255,7 +261,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
                     command_1=self._format_command_name(
                         f"localblocklist remove {' '.join(map(str, to_remove))}"
                     ),
-                    user=self.author,
+                    user=escape(str(self.author), formatting=True),
                     roles=humanize_list(role_names),
                     command_2=self._format_command_name("localblocklist clear"),
                 ),
@@ -275,7 +281,7 @@ class DetailedGlobalCallOnceChecksMixin(IssueDiagnoserBase):
                 " run commands freely, you can run {command_2} to do that."
             ).format(
                 command_1=self._format_command_name(f"localblocklist remove {self.author.id}"),
-                user=self.author,
+                user=escape(str(self.author), formatting=True),
                 command_2=self._format_command_name("localblocklist clear"),
             ),
         )
@@ -750,7 +756,7 @@ class IssueDiagnoser(RootDiagnosersMixin, IssueDiagnoserBase):
 
         lines.append(_("\nHere's a detailed report in case you need it:"))
         lines.append(">>> " + bold(_("Channel: ")) + self.channel.mention)
-        lines.append(bold(_("Command caller: ")) + str(self.author))
+        lines.append(bold(_("Command caller: ")) + escape(str(self.author), formatting=True))
         lines.append(bold(_("Command: ")) + self._format_command_name(self.command))
         lines.append(bold(_("Tests that have been ran:")))
         lines.extend(self._get_message_from_check_result(result))
