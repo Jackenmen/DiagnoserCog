@@ -13,7 +13,7 @@
         "diagnostics",
         "tools"
     ],
-    "min_bot_version": "3.4.7",
+    "min_bot_version": "3.4.3",
     "hidden": false,
     "disabled": false,
     "type": "COG"
