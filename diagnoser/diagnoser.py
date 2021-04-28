@@ -782,7 +782,7 @@ class Diagnoser(commands.Cog):
         self,
         ctx: commands.Context,
         channel: discord.TextChannel,
-        member: discord.Member,
+        member: Union[discord.Member, discord.User],
         *,
         command_name: str,
     ) -> None:
@@ -791,6 +791,16 @@ class Diagnoser(commands.Cog):
         if command is None:
             await ctx.send("Command not found!")
             return
+
+        # This is done to allow the bot owner to diagnose a command
+        # while not being a part of the server.
+        if isinstance(member, discord.User):
+            maybe_member = channel.guild.get_member(member.id)
+            if maybe_member is None:
+                await ctx.send(_("The given user is not a member of the diagnosed server."))
+                return
+            member = maybe_member
+
         if not channel.permissions_for(member).send_messages:
             # Let's make Flame happy here
             await ctx.send(
