@@ -53,6 +53,7 @@ class IssueDiagnoserBase:
         self.message = copy(self._original_ctx.message)
         self.message.author = self.author
         self.message.channel = self.channel
+        self.message.guild = self.guild
         self.message.content = self._original_ctx.prefix + self.command.qualified_name
 
         self.ctx = await self.bot.get_context(self.message)
