@@ -53,8 +53,13 @@ class IssueDiagnoserBase:
         self.message = copy(self._original_ctx.message)
         self.message.author = self.author
         self.message.channel = self.channel
-        self.message.guild = self.guild
         self.message.content = self._original_ctx.prefix + self.command.qualified_name
+        # clear the cached properties
+        for attr in self.message._CACHED_SLOTS:  # type: ignore[attr-defined]
+            try:
+                delattr(self.message, attr)
+            except AttributeError:
+                pass
 
         self.ctx = await self.bot.get_context(self.message)
 
