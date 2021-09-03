@@ -671,8 +671,8 @@ class RootDiagnosersMixin(
             #
             # NOTE: it might be worth storing this information in case we get to
             # `final_check_result`, although that's not very likely
-            # Similar exception handlers further down the line could do that
-            # as well if I'm gonna implement it here.
+            # If something like this gets implemented here in the future,
+            # similar exception handlers further down the line could do that as well.
             pass
         else:
             if can_run:
@@ -779,7 +779,7 @@ class Diagnoser(commands.Cog):
 
     # You may ask why this command is owner-only,
     # cause after all it could be quite useful to guild owners!
-    # Truth to be told, that would require me to make some part of this
+    # Truth to be told, that would require us to make some part of this
     # more end-user friendly rather than just bot owner friendly - terms like
     # 'global call once checks' are not of any use to someone who isn't bot owner.
     @commands.is_owner()
@@ -811,7 +811,7 @@ class Diagnoser(commands.Cog):
             # Let's make Flame happy here
             await ctx.send(
                 _(
-                    "Don't try to fool me, the given member can't access the {channel} channel."
+                    "Don't try to fool me, the given member can't access the {channel} channel!"
                 ).format(channel=channel.mention)
             )
             return
